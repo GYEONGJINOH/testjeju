@@ -1,0 +1,477 @@
+/*************************************************************
+ * 안부나무 (Anbunamu) - 가족 안부 전화 웹 서비스
+ * Google Sheets + Apps Script 웹앱 (로그인/다중 사용자 지원)
+ *************************************************************/
+
+/* ── 브랜드 / 고객센터 정보 (여기만 고치면 전체 반영) ── */
+var BRAND = {
+  name: '안부나무',
+  tagline: '가족에게 마음을 전하는 안부 한 통'
+};
+var SUPPORT = {
+  phone: '070-8080-0365',           // 인터넷전화 - 실제 번호로 교체하세요
+  email: 'help@anbunamu.co.kr',     // 고객센터 이메일 - 실제 주소로 교체하세요
+  fax:   '02-6000-0365',            // 팩스 - 실제 번호로 교체하세요
+  hours: '평일 09:00 ~ 18:00 (주말·공휴일 휴무)'
+};
+/* 약관/방침에 표시되는 사업자 정보 (실제 정보로 교체하세요) */
+var COMPANY = {
+  operator: '안부나무',              // 운영자/상호
+  ceo: '○○○',                       // 대표자
+  bizNo: '000-00-00000',            // 사업자등록번호
+  address: '서울특별시 ○○구 ○○로 00', // 주소
+  privacyOfficer: '○○○',            // 개인정보 보호책임자
+  effectiveDate: '2026년 7월 16일'    // 시행일
+};
+
+var SHEET = {
+  USERS: 'Users', SESS: 'Sessions', RESET: 'Resets',
+  CONTACTS: 'Contacts', LOG: 'CallLog',
+  SETTINGS: 'Settings', LOC: 'Locations', INQ: 'Inquiries'
+};
+
+/* ===================== 웹앱 진입점 ===================== */
+function doGet(e) {
+  setup();
+  // 재설정 토큰은 UUID 형식만 허용 (스크립트 삽입 방지)
+  var reset = (e && e.parameter && e.parameter.reset)
+    ? String(e.parameter.reset).replace(/[^0-9a-zA-Z\-]/g, '') : '';
+  // 화면은 Index.html 파일이 담당합니다. 아래 값들을 템플릿으로 넘겨줍니다.
+  var t = HtmlService.createTemplateFromFile('Index');
+  t.BRAND = BRAND;
+  t.SUPPORT = SUPPORT;
+  t.COMPANY = COMPANY;
+  t.telHref = SUPPORT.phone.replace(/[^0-9+]/g, '');
+  t.resetToken = reset;
+  return t.evaluate()
+    .setTitle(BRAND.name)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
+}
+
+/* ===================== 시트 세팅 ===================== */
+function getSS_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+
+function ensureSheet_(ss, name, headers) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) { sh = ss.insertSheet(name); }
+  if (sh.getLastRow() === 0) { sh.appendRow(headers); sh.setFrozenRows(1); }
+  return sh;
+}
+
+function setup() {
+  var ss = getSS_();
+  ensureSheet_(ss, SHEET.USERS,    ['id', '이름', 'salt', 'hash', '가입일']);
+  ensureSheet_(ss, SHEET.SESS,     ['token', 'id', '만료']);
+  ensureSheet_(ss, SHEET.RESET,    ['token', 'id', '만료']);
+  ensureSheet_(ss, SHEET.CONTACTS, ['소유자', 'ID', '이름', '관계', '전화번호', '사진URL']);
+  ensureSheet_(ss, SHEET.LOG,      ['소유자', '시간', '연락처ID', '이름']);
+  ensureSheet_(ss, SHEET.LOC,      ['그룹', '소유자', '이름', '위도', '경도', '업데이트', '공유']);
+  ensureSheet_(ss, SHEET.SETTINGS, ['소유자', '키', '값']);
+  ensureSheet_(ss, SHEET.INQ,      ['시간', '소유자', '이메일', '제목', '내용', '상태', '답변']);
+}
+
+/* ===================== 인증 (로그인/회원가입) ===================== */
+function makeSalt_() { return Utilities.getUuid(); }
+
+function hashPw_(pw, salt) {
+  var raw = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256, salt + '::' + pw, Utilities.Charset.UTF_8);
+  return Utilities.base64Encode(raw);
+}
+
+function findUser_(id) {
+  id = String(id || '').trim().toLowerCase();
+  var v = getSS_().getSheetByName(SHEET.USERS).getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][0]).toLowerCase() === id) {
+      return { id: v[i][0], name: v[i][1], salt: v[i][2], hash: v[i][3] };
+    }
+  }
+  return null;
+}
+
+function signup(id, pw, name) {
+  setup();
+  id = String(id || '').trim().toLowerCase();
+  name = String(name || '').trim();
+  if (!id || !pw || !name) { return { ok: false, msg: '모든 항목을 입력해 주세요' }; }
+  if (id.indexOf('@') < 0) { return { ok: false, msg: '이메일 형식의 아이디를 입력해 주세요' }; }
+  if (String(pw).length < 6) { return { ok: false, msg: '비밀번호는 6자 이상이어야 해요' }; }
+  if (findUser_(id)) { return { ok: false, msg: '이미 가입된 아이디입니다' }; }
+  var salt = makeSalt_();
+  getSS_().getSheetByName(SHEET.USERS).appendRow([id, name, salt, hashPw_(pw, salt), new Date()]);
+  return login(id, pw);
+}
+
+function login(id, pw) {
+  setup();
+  var u = findUser_(id);
+  if (!u) { return { ok: false, msg: '존재하지 않는 아이디입니다' }; }
+  if (hashPw_(pw, u.salt) !== u.hash) { return { ok: false, msg: '비밀번호가 일치하지 않습니다' }; }
+  var token = Utilities.getUuid();
+  var expires = new Date().getTime() + 1000 * 60 * 60 * 24 * 30; // 30일
+  getSS_().getSheetByName(SHEET.SESS).appendRow([token, u.id, expires]);
+  return { ok: true, token: token, id: u.id, name: u.name };
+}
+
+function uidFromToken_(token) {
+  if (!token) { return null; }
+  setup();
+  var v = getSS_().getSheetByName(SHEET.SESS).getDataRange().getValues();
+  var now = new Date().getTime();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][0]) === String(token)) {
+      return (Number(v[i][2]) > now) ? String(v[i][1]) : null;
+    }
+  }
+  return null;
+}
+
+function need_(token) {
+  var uid = uidFromToken_(token);
+  if (!uid) { throw new Error('로그인이 필요합니다'); }
+  return uid;
+}
+
+function checkSession(token) {
+  var uid = uidFromToken_(token);
+  if (!uid) { return { ok: false }; }
+  var u = findUser_(uid);
+  return { ok: true, id: uid, name: (u ? u.name : '') };
+}
+
+function logout(token) {
+  var sh = getSS_().getSheetByName(SHEET.SESS);
+  var v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][0]) === String(token)) { sh.deleteRow(i + 1); }
+  }
+  return true;
+}
+
+/* ===================== 비밀번호 재설정 (이메일) ===================== */
+function requestPasswordReset(id) {
+  setup();
+  id = String(id || '').trim().toLowerCase();
+  var generic = { ok: true, msg: '가입된 이메일이라면 재설정 링크를 보냈습니다. 메일함을 확인해 주세요.' };
+  if (id.indexOf('@') < 0) { return { ok: false, msg: '이메일 형식의 아이디를 입력해 주세요' }; }
+  if (!findUser_(id)) { return generic; } // 계정 존재 여부를 노출하지 않음
+  var token = Utilities.getUuid();
+  var expires = new Date().getTime() + 1000 * 60 * 60; // 1시간
+  getSS_().getSheetByName(SHEET.RESET).appendRow([token, id, expires]);
+  var url = '';
+  try { url = ScriptApp.getService().getUrl(); } catch (e) {}
+  var link = url + (url.indexOf('?') < 0 ? '?' : '&') + 'reset=' + token;
+  MailApp.sendEmail(id, '[' + BRAND.name + '] 비밀번호 재설정 안내',
+    '아래 링크에서 1시간 이내에 새 비밀번호를 설정해 주세요.\n\n' + link +
+    '\n\n본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.');
+  return generic;
+}
+
+function checkReset(token) {
+  setup();
+  var v = getSS_().getSheetByName(SHEET.RESET).getDataRange().getValues();
+  var now = new Date().getTime();
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][0]) === String(token)) {
+      return (Number(v[i][2]) > now) ? { ok: true, id: String(v[i][1]) } : { ok: false };
+    }
+  }
+  return { ok: false };
+}
+
+function resetPassword(token, newPw) {
+  setup();
+  if (String(newPw || '').length < 6) { return { ok: false, msg: '비밀번호는 6자 이상이어야 해요' }; }
+  var r = checkReset(token);
+  if (!r.ok) { return { ok: false, msg: '재설정 링크가 만료되었거나 유효하지 않습니다' }; }
+  var id = r.id;
+
+  // 비밀번호(솔트/해시) 갱신
+  var ush = getSS_().getSheetByName(SHEET.USERS);
+  var uv = ush.getDataRange().getValues();
+  for (var i = 1; i < uv.length; i++) {
+    if (String(uv[i][0]).toLowerCase() === id) {
+      var salt = makeSalt_();
+      ush.getRange(i + 1, 3).setValue(salt);
+      ush.getRange(i + 1, 4).setValue(hashPw_(newPw, salt));
+      break;
+    }
+  }
+  // 사용한 재설정 토큰 제거
+  var rsh = getSS_().getSheetByName(SHEET.RESET);
+  var rv = rsh.getDataRange().getValues();
+  for (var j = rv.length - 1; j >= 1; j--) {
+    if (String(rv[j][1]).toLowerCase() === id) { rsh.deleteRow(j + 1); }
+  }
+  // 보안을 위해 기존 로그인 세션 모두 무효화
+  var ssh = getSS_().getSheetByName(SHEET.SESS);
+  var sv = ssh.getDataRange().getValues();
+  for (var k = sv.length - 1; k >= 1; k--) {
+    if (String(sv[k][1]).toLowerCase() === id) { ssh.deleteRow(k + 1); }
+  }
+  return { ok: true };
+}
+
+/* ===================== 설정 (사용자별) ===================== */
+function getSettingsByUid_(uid) {
+  var v = getSS_().getSheetByName(SHEET.SETTINGS).getDataRange().getValues();
+  var o = {};
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][0]) === uid) { o[v[i][1]] = v[i][2]; }
+  }
+  if (o.myName === undefined)        { o.myName = ''; }
+  if (o.frequency === undefined)     { o.frequency = '3'; }
+  if (o.time === undefined)          { o.time = '20:00'; }
+  if (o.emailReminder === undefined) { o.emailReminder = 'off'; }
+  if (o.groupCode === undefined)     { o.groupCode = ''; }
+  return o;
+}
+
+function getSettings(token) { return getSettingsByUid_(need_(token)); }
+
+function saveSettings(token, obj) {
+  var uid = need_(token);
+  var sh = getSS_().getSheetByName(SHEET.SETTINGS);
+  var v = sh.getDataRange().getValues();
+  var rowByKey = {};
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][0]) === uid) { rowByKey[v[i][1]] = i + 1; }
+  }
+  Object.keys(obj).forEach(function (k) {
+    if (rowByKey[k]) { sh.getRange(rowByKey[k], 3).setValue(obj[k]); }
+    else { sh.appendRow([uid, k, obj[k]]); }
+  });
+  return getSettingsByUid_(uid);
+}
+
+/* ===================== 연락처 (사용자별) ===================== */
+function getContacts(token) {
+  var uid = need_(token);
+  var v = getSS_().getSheetByName(SHEET.CONTACTS).getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][0]) === uid && v[i][1] !== '') {
+      out.push({ id: String(v[i][1]), name: v[i][2], rel: v[i][3],
+                 phone: String(v[i][4]), photo: v[i][5] });
+    }
+  }
+  return out;
+}
+
+function addContact(token, c) {
+  var uid = need_(token);
+  var sh = getSS_().getSheetByName(SHEET.CONTACTS);
+  var id = 'c' + new Date().getTime();
+  var r = sh.getLastRow() + 1;
+  sh.getRange(r, 5).setNumberFormat('@'); // 전화번호 텍스트 유지
+  sh.getRange(r, 1, 1, 6).setValues([[uid, id, c.name, c.rel, c.phone, c.photo]]);
+  return getContacts(token);
+}
+
+function deleteContact(token, id) {
+  var uid = need_(token);
+  var sh = getSS_().getSheetByName(SHEET.CONTACTS);
+  var v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    if (String(v[i][0]) === uid && String(v[i][1]) === String(id)) { sh.deleteRow(i + 1); }
+  }
+  return getContacts(token);
+}
+
+/* ===================== 사진 업로드 (Google Drive) ===================== */
+function getPhotoFolder_() {
+  var name = '안부나무_사진';
+  var it = DriveApp.getFoldersByName(name);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(name);
+}
+
+function uploadPhoto(token, data) {
+  need_(token);
+  var bytes = Utilities.base64Decode(data.base64);
+  var blob = Utilities.newBlob(bytes, data.mimeType || 'image/jpeg',
+             data.name || ('photo_' + new Date().getTime()));
+  var file = getPhotoFolder_().createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { url: 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1000' };
+}
+
+/* ===================== 전화 기록 & 통계 ===================== */
+function logCall(token, id) {
+  var uid = need_(token);
+  var name = '';
+  getContacts(token).forEach(function (c) { if (c.id === String(id)) { name = c.name; } });
+  getSS_().getSheetByName(SHEET.LOG).appendRow([uid, new Date(), id, name]);
+  return computeStats_(uid);
+}
+
+function fmtMD_(d) { return (d.getMonth() + 1) + '/' + d.getDate(); }
+
+function mondayOf_(d) {
+  var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  var dow = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - dow);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function computeStats_(uid) {
+  var target = parseInt(getSettingsByUid_(uid).frequency, 10) || 3;
+  var v = getSS_().getSheetByName(SHEET.LOG).getDataRange().getValues();
+  var now = new Date();
+  var total = 0, week = 0, month = 0;
+  var byDay = {}, byContact = {}, days = [];
+
+  for (var d = 29; d >= 0; d--) {
+    var dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d);
+    var key = fmtMD_(dt); days.push(key); byDay[key] = 0;
+  }
+  var startWeek = mondayOf_(now);
+  var startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  var weekCounts = [];
+  for (var w = 0; w < 26; w++) { weekCounts[w] = 0; }
+
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][0]) !== uid) { continue; }
+    var t = v[i][1];
+    if (!(t instanceof Date)) { t = new Date(t); }
+    if (isNaN(t.getTime())) { continue; }
+    total++;
+    if (t >= startWeek) { week++; }
+    if (t >= startMonth) { month++; }
+    var k = fmtMD_(t);
+    if (byDay.hasOwnProperty(k)) { byDay[k]++; }
+    var nm = v[i][3] || '기타';
+    byContact[nm] = (byContact[nm] || 0) + 1;
+    var wi = Math.round((startWeek.getTime() - mondayOf_(t).getTime()) / (7 * 86400000));
+    if (wi >= 0 && wi < 26) { weekCounts[wi]++; }
+  }
+
+  var streak = 0;
+  var startIdx = (weekCounts[0] >= target) ? 0 : 1;
+  for (var j = startIdx; j < 26; j++) {
+    if (weekCounts[j] >= target) { streak++; } else { break; }
+  }
+  var endWeek = new Date(startWeek.getTime() + 7 * 86400000);
+  var daysLeft = Math.max(0, Math.ceil((endWeek.getTime() - now.getTime()) / 86400000));
+  var remaining = Math.max(0, target - week);
+
+  return {
+    total: total, week: week, month: month, target: target,
+    remaining: remaining, daysLeft: daysLeft, streak: streak, weekMet: (week >= target),
+    byDay: days.map(function (k) { return [k, byDay[k]]; }),
+    byContact: Object.keys(byContact).map(function (k) { return [k, byContact[k]]; })
+  };
+}
+
+function getStats(token) { return computeStats_(need_(token)); }
+
+/* ===================== 위치 공유 (가족 연동 코드) ===================== */
+function saveLocation(token, o) {
+  var uid = need_(token);
+  var group = getSettingsByUid_(uid).groupCode || uid;
+  var sh = getSS_().getSheetByName(SHEET.LOC);
+  var v = sh.getDataRange().getValues();
+  var row = -1;
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][1]) === uid) { row = i + 1; break; }
+  }
+  var data = [group, uid, o.name, o.lat, o.lng, new Date(), o.share ? 'ON' : 'OFF'];
+  if (row > 0) { sh.getRange(row, 1, 1, 7).setValues([data]); }
+  else { sh.appendRow(data); }
+  return getLocations(token);
+}
+
+function getLocations(token) {
+  var uid = need_(token);
+  var group = getSettingsByUid_(uid).groupCode || uid;
+  var v = getSS_().getSheetByName(SHEET.LOC).getDataRange().getValues();
+  var tz = Session.getScriptTimeZone();
+  var out = [];
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][0]) === group && String(v[i][1]) !== uid && v[i][6] === 'ON') {
+      var t = v[i][5];
+      var ts = (t instanceof Date) ? Utilities.formatDate(t, tz, 'MM/dd HH:mm') : String(t);
+      out.push({ name: v[i][2], lat: v[i][3], lng: v[i][4], updated: ts });
+    }
+  }
+  return out;
+}
+
+/* ===================== 이메일 알림 (앱을 꺼도 발송) ===================== */
+function enableEmailReminder(token) {
+  saveSettings(token, { emailReminder: 'on' });
+  ensureReminderTrigger_();
+  return true;
+}
+
+function disableEmailReminder(token) {
+  saveSettings(token, { emailReminder: 'off' });
+  return true;
+}
+
+function ensureReminderTrigger_() {
+  var exists = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'hourlyReminders';
+  });
+  if (!exists) { ScriptApp.newTrigger('hourlyReminders').timeBased().everyHours(1).create(); }
+}
+
+function hourlyReminders() {
+  var hour = new Date().getHours();
+  var users = getSS_().getSheetByName(SHEET.USERS).getDataRange().getValues();
+  for (var i = 1; i < users.length; i++) {
+    var uid = String(users[i][0]);
+    var s = getSettingsByUid_(uid);
+    if (s.emailReminder !== 'on') { continue; }
+    var h = (String(s.time).indexOf(':') > -1) ? parseInt(String(s.time).split(':')[0], 10) : 20;
+    if (h !== hour) { continue; }
+    if (uid.indexOf('@') < 0) { continue; }
+    sendReminderTo_(uid);
+  }
+}
+
+function sendReminderTo_(uid) {
+  var st = computeStats_(uid);
+  var url = '';
+  try { url = ScriptApp.getService().getUrl(); } catch (e) {}
+  var subject, body;
+  if (st.week >= st.target) {
+    subject = '🌳 [' + BRAND.name + '] 이번 주 목표 달성! 안부 한 통 더 어때요?';
+    body = '이번 주 벌써 ' + st.week + '번 연락드렸어요. ' + st.streak + '주 연속 기록을 이어가는 중입니다! 🔥';
+  } else if (st.remaining >= st.daysLeft && st.daysLeft > 0) {
+    subject = '⚠️ [' + BRAND.name + '] 이번 주 목표까지 ' + st.remaining + '번! 서둘러 전화드려요';
+    body = '주 ' + st.target + '회 목표 중 ' + st.week + '회 완료했어요.\n남은 '
+         + st.daysLeft + '일 동안 ' + st.remaining + '번 더 필요합니다. 지금 바로 한 통 어떠세요?';
+  } else {
+    subject = '📞 [' + BRAND.name + '] 가족에게 안부 전화할 시간이에요';
+    body = '이번 주 ' + st.week + '/' + st.target + '회 진행 중이에요.\n오늘 한 통이면 목표에 한 걸음 더 가까워집니다!';
+  }
+  MailApp.sendEmail(uid, subject, body + '\n\n' + url);
+}
+
+/* ===================== 고객문의 (Q&A) ===================== */
+function submitInquiry(token, subject, content) {
+  var uid = need_(token);
+  subject = String(subject || '').trim();
+  content = String(content || '').trim();
+  if (!subject || !content) { throw new Error('제목과 내용을 입력해 주세요'); }
+  getSS_().getSheetByName(SHEET.INQ).appendRow([new Date(), uid, uid, subject, content, '접수', '']);
+  return getMyInquiries(token);
+}
+
+function getMyInquiries(token) {
+  var uid = need_(token);
+  var v = getSS_().getSheetByName(SHEET.INQ).getDataRange().getValues();
+  var tz = Session.getScriptTimeZone();
+  var out = [];
+  for (var i = 1; i < v.length; i++) {
+    if (String(v[i][1]) === uid) {
+      var t = v[i][0];
+      var ts = (t instanceof Date) ? Utilities.formatDate(t, tz, 'yyyy.MM.dd HH:mm') : String(t);
+      out.push({ time: ts, subject: v[i][3], content: v[i][4],
+                 status: v[i][5], answer: v[i][6] });
+    }
+  }
+  return out.reverse();
+}
