@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>안부나무 — 발표자료</title>
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%238b5e34'/><path d='M32 11c-9 0-16 6-16 15 0 7 7 12 16 12s16-5 16-12c0-9-7-15-16-15z' fill='%236f8f4e'/><path d='M32 47s-11-6-11-13a6 6 0 0 1 11-3 6 6 0 0 1 11 3c0 7-11 13-11 13z' fill='%23f3e4cf'/></svg>" />
+<style>
+  :root{
+    --bg:#e9dcc3; --card:#fbf4e6; --card2:#f2e6cf; --line:#e0cda7;
+    --wood:#8b5e34; --wood2:#a9744f; --woodDark:#6f4a2f;
+    --leaf:#6f8f4e; --leaf2:#5f8544;
+    --text:#4a3a2c; --muted:#8a7860; --red:#b4453a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    color:var(--text); line-height:1.7;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;
+    background-color:var(--bg);
+    background-image:
+      repeating-linear-gradient(90deg,rgba(111,74,47,.05) 0 1px,transparent 1px 7px),
+      repeating-linear-gradient(90deg,rgba(139,94,52,.035) 0 2px,transparent 2px 13px),
+      linear-gradient(180deg,#efe3cf,#e4d3b4);
+    background-attachment:fixed;
+  }
+  .page{max-width:1000px;margin:0 auto;padding:0 24px 80px}
+
+  /* ── 표지 ── */
+  .hero{
+    text-align:center; padding:72px 24px 56px; margin-bottom:16px;
+    background:linear-gradient(180deg,var(--wood2),var(--wood));
+    background-image:
+      linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,.16)),
+      repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0 2px,transparent 2px 9px);
+    color:#fff; box-shadow:0 6px 20px rgba(90,60,30,.3);
+  }
+  .hero h1{font-size:clamp(38px,6vw,60px); letter-spacing:-1px; margin:14px 0 6px}
+  .hero .tag{font-size:clamp(15px,2vw,19px); opacity:.92}
+  .hero .sub{
+    display:inline-block; margin-top:22px; padding:8px 18px; font-size:14px;
+    background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.35); border-radius:24px;
+  }
+
+  /* ── 섹션 ── */
+  section{
+    background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--line); border-radius:18px;
+    padding:34px 32px; margin:26px 0;
+    box-shadow:0 4px 16px rgba(90,60,30,.12), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  h2{
+    display:flex; align-items:center; gap:12px;
+    font-size:24px; color:var(--woodDark); margin-bottom:8px; letter-spacing:-.5px;
+  }
+  h2 .no{
+    flex:none; width:34px; height:34px; border-radius:50%;
+    background:var(--leaf2); color:#fff; font-size:15px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .lead{color:var(--muted); margin-bottom:22px; font-size:15px}
+  h3{font-size:17px; color:var(--wood); margin:22px 0 8px}
+
+  /* ── 문제 → 해결 ── */
+  .flow{display:grid; grid-template-columns:1fr auto 1fr; gap:16px; align-items:center}
+  .flow .box{background:#fffdf7; border:1px solid var(--line); border-radius:14px; padding:18px 20px}
+  .flow .box.bad{border-left:4px solid var(--red)}
+  .flow .box.good{border-left:4px solid var(--leaf2)}
+  .flow .arrow{font-size:26px; color:var(--wood2)}
+  .flow b{display:block; margin-bottom:6px}
+  .flow p{font-size:14px; color:var(--muted)}
+
+  /* ── 기능 카드 ── */
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px}
+  .feat{background:#fffdf7; border:1px solid var(--line); border-radius:14px; padding:18px}
+  .feat .ico{font-size:28px; display:block; margin-bottom:8px}
+  .feat b{display:block; color:var(--woodDark); margin-bottom:5px}
+  .feat p{font-size:13.5px; color:var(--muted)}
+
+  /* ── 3단계 ── */
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; text-align:center}
+  .step{background:#fffdf7; border:1px solid var(--line); border-radius:14px; padding:22px 14px; position:relative}
+  .step .n{
+    position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+    background:var(--wood); color:#fff; font-size:12px; font-weight:700;
+    padding:3px 12px; border-radius:12px;
+  }
+  .step .ico{font-size:34px; display:block; margin:8px 0 6px}
+  .step b{display:block; color:var(--woodDark)}
+  .step p{font-size:13px; color:var(--muted)}
+
+  /* ── 구조도 ── */
+  .arch{display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:10px; align-items:center; text-align:center}
+  .node{border-radius:14px; padding:20px 12px; border:2px solid var(--line); background:#fffdf7}
+  .node .ico{font-size:30px; display:block; margin-bottom:6px}
+  .node b{display:block; font-size:15px; color:var(--woodDark)}
+  .node small{color:var(--muted); font-size:12px}
+  .node.mid{border-color:var(--leaf2); background:#f3f7ec}
+  .node.right{border-color:var(--leaf2)}
+  .link{color:var(--wood2); font-size:12px; font-weight:700; white-space:nowrap}
+  .link .a{font-size:22px; display:block; line-height:1}
+
+  /* ── 표 ── */
+  table{width:100%; border-collapse:collapse; margin-top:10px; font-size:14px}
+  th,td{padding:10px 12px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top}
+  th{color:var(--muted); font-size:12.5px; font-weight:700; background:rgba(224,205,167,.25)}
+  td b{color:var(--woodDark)}
+
+  /* ── 목록 ── */
+  ul{list-style:none; margin-top:8px}
+  li{padding:7px 0 7px 26px; position:relative; font-size:14.5px}
+  li:before{content:"🌿"; position:absolute; left:0; font-size:13px}
+  li.done:before{content:"✅"}
+  li.todo:before{content:"⬜"}
+
+  .note{
+    margin-top:18px; padding:14px 16px; font-size:13.5px;
+    background:#f3f7ec; border-left:3px solid var(--leaf2); border-radius:8px; color:var(--text);
+  }
+  .warn{background:#fdf1ef; border-left-color:var(--red)}
+
+  .kv{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; text-align:center; margin-top:6px}
+  .kv div{background:#fffdf7; border:1px solid var(--line); border-radius:12px; padding:16px 10px}
+  .kv b{display:block; font-size:26px; color:var(--leaf2)}
+  .kv small{color:var(--muted); font-size:12.5px}
+
+  footer{text-align:center; color:var(--muted); font-size:13px; padding:30px 0 10px}
+
+  @media (max-width:760px){
+    .flow,.arch{grid-template-columns:1fr}
+    .flow .arrow,.link{transform:rotate(90deg)}
+    .steps{grid-template-columns:1fr}
+  }
+  @media print{
+    body{background:#fff}
+    section{break-inside:avoid; box-shadow:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════ 표지 ══════ -->
+<div class="hero">
+  <svg width="86" height="86" viewBox="0 0 64 64" aria-label="안부나무 로고">
+    <circle cx="32" cy="32" r="30" fill="#f3e4cf"/>
+    <rect x="29" y="30" width="6" height="20" rx="2" fill="#6f4a2f"/>
+    <path d="M32 12c-9 0-16 6-16 15 0 7 7 12 16 12s16-5 16-12c0-9-7-15-16-15z" fill="#6f8f4e"/>
+    <path d="M32 34s-7-4-7-9a4 4 0 0 1 7-2.5A4 4 0 0 1 39 25c0 5-7 9-7 9z" fill="#c65f5f"/>
+  </svg>
+  <h1>안부나무</h1>
+  <p class="tag">가족에게 마음을 전하는 안부 한 통</p>
+  <div class="sub">청년 · 직장인 세대를 위한 가족 안부 전화 웹 서비스</div>
+</div>
+
+<div class="page">
+
+  <!-- ══════ 1. 기획 배경 ══════ -->
+  <section>
+    <h2><span class="no">1</span>기획 배경</h2>
+    <p class="lead">우리는 왜 가족에게 전화를 못 드릴까?</p>
+
+    <div class="flow">
+      <div class="box bad">
+        <b>😰 지금의 현실</b>
+        <p>계속되는 경쟁, 이어가야 할 커리어와 업무.
+           학업·직장·사업으로 <b>고향이 아닌 타지에 사는</b> 청년이 늘고 있습니다.
+           나를 제외한 주위에 대한 관심이 줄고, 그만큼 <b>가족과의 대화와 만남도 줄어듭니다.</b></p>
+      </div>
+      <div class="arrow">➜</div>
+      <div class="box good">
+        <b>🌳 문제의 본질</b>
+        <p>마음이 없어서가 아닙니다. <b>잊고, 미루고, 계기가 없어서</b>입니다.
+           그렇다면 <b>때맞춰 상기시키고, 마음을 데우고, 그 자리에서 바로 행동</b>하게 만들면 됩니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ 2. 핵심 아이디어 ══════ -->
+  <section>
+    <h2><span class="no">2</span>핵심 아이디어 — 3초 안에 전화까지</h2>
+    <p class="lead">알림에서 통화까지의 거리를 최대한 짧게 만드는 것이 이 서비스의 전부입니다.</p>
+
+    <div class="steps">
+      <div class="step">
+        <span class="n">때</span><span class="ico">⏰</span>
+        <b>알림이 울린다</b>
+        <p>내가 정한 주기와 시간대에<br>맞춰 알려줍니다</p>
+      </div>
+      <div class="step">
+        <span class="n">마음</span><span class="ico">🖼️</span>
+        <b>추억 사진이 뜬다</b>
+        <p>부모님·조부모님과 찍은<br>사진이 원목 액자에</p>
+      </div>
+      <div class="step">
+        <span class="n">행동</span><span class="ico">📞</span>
+        <b>밀어서 전화</b>
+        <p>슬라이드 한 번으로<br>바로 통화 연결</p>
+      </div>
+    </div>
+
+    <div class="note">
+      💡 <b>왜 "밀어서" 인가?</b> 사진을 넘기다 실수로 전화가 걸리면 오히려 부담이 됩니다.
+      그래서 <b>넘기기(사진 탐색)</b>와 <b>밀기(전화 연결)</b>를 분리해, 의도한 순간에만 연결되도록 설계했습니다.
+    </div>
+  </section>
+
+  <!-- ══════ 3. 주요 기능 ══════ -->
+  <section>
+    <h2><span class="no">3</span>주요 기능</h2>
+    <p class="lead">기획한 기능을 모두 구현했습니다.</p>
+
+    <div class="grid">
+      <div class="feat"><span class="ico">⏰</span><b>맞춤 알림</b>
+        <p>전화 주기(주 N회)와 시간대를 직접 설정. 앱을 꺼둬도 <b>이메일로 알림</b>이 갑니다.</p></div>
+      <div class="feat"><span class="ico">🖼️</span><b>추억 사진 액자</b>
+        <p>가족 사진을 원목 액자로 슬라이드. 기기에서 <b>바로 업로드</b>(구글 드라이브 저장).</p></div>
+      <div class="feat"><span class="ico">📞</span><b>밀어서 전화 + 자동 기록</b>
+        <p>저장된 전화번호로 즉시 연결하고, 통화 시도를 <b>자동으로 카운팅</b>합니다.</p></div>
+      <div class="feat"><span class="ico">📊</span><b>2D 데이터 시각화</b>
+        <p>일별 막대그래프, 가족별 원형그래프, 주간 목표 진행바, <b>🔥 연속 달성 주(스트릭)</b>.</p></div>
+      <div class="feat"><span class="ico">📍</span><b>가족 위치 공유</b>
+        <p>직선거리 계산과 길찾기 연결. <b>ON/OFF 토글</b>로 언제든 중단 가능.</p></div>
+      <div class="feat"><span class="ico">🎧</span><b>고객 지원</b>
+        <p>고객센터(인터넷전화·이메일·팩스)와 FAQ, <b>1:1 문의</b>와 답변 조회.</p></div>
+    </div>
+
+    <h3>이용을 뒷받침하는 기능</h3>
+    <ul>
+      <li>회원가입 / 로그인 — 사용자별로 연락처·통계·설정이 <b>완전히 분리</b></li>
+      <li>비밀번호 재설정 — 이메일로 링크 발송 (1시간 만료 · 1회용)</li>
+      <li>이용약관 · 개인정보처리방침 페이지</li>
+    </ul>
+  </section>
+
+  <!-- ══════ 4. 데이터 시각화 ══════ -->
+  <section>
+    <h2><span class="no">4</span>전화 빈도, 숫자로 보여주기</h2>
+    <p class="lead">"얼마나 자주 연락드렸나"를 감이 아니라 데이터로 확인합니다.</p>
+
+    <div class="kv">
+      <div><b>4</b><small>전체 / 이번 주 / 이번 달 / 목표 달성률</small></div>
+      <div><b>30일</b><small>일별 전화 횟수 막대그래프</small></div>
+      <div><b>👨‍👩‍👧</b><small>가족별 전화 비중 원형그래프</small></div>
+      <div><b>🔥</b><small>주간 목표 연속 달성 기록</small></div>
+    </div>
+
+    <div class="note">
+      🎯 <b>단순 기록을 넘어 행동을 유도합니다.</b> 남은 날짜보다 남은 횟수가 많으면
+      <b>"남은 3일 동안 2번 더! 서둘러 전화드려요"</b> 처럼 경고가 뜨고, 이메일 알림의 문구도
+      <b>상황에 따라 강도가 달라집니다.</b>
+    </div>
+  </section>
+
+  <!-- ══════ 5. 시스템 구조 ══════ -->
+  <section>
+    <h2><span class="no">5</span>시스템 구조</h2>
+    <p class="lead">별도 서버 없이, 구글 인프라만으로 구현했습니다.</p>
+
+    <div class="arch">
+      <div class="node">
+        <span class="ico">🖥️</span><b>index.html</b>
+        <small>화면 (HTML · CSS · JS)</small>
+      </div>
+      <div class="link"><span class="a">⇄</span>fetch</div>
+      <div class="node mid">
+        <span class="ico">🔌</span><b>Apps Script 웹앱</b>
+        <small>JSON 창구 (doGet · doPost)</small>
+      </div>
+      <div class="link"><span class="a">⇄</span>읽기 · 쓰기</div>
+      <div class="node right">
+        <span class="ico">📗</span><b>Google Sheets</b>
+        <small>데이터 저장소 (8개 시트)</small>
+      </div>
+    </div>
+
+    <h3>역할 분담</h3>
+    <table>
+      <tr><th style="width:22%">구성</th><th style="width:26%">하는 일</th><th>비고</th></tr>
+      <tr><td><b>index.html</b></td><td>화면 표시와 사용자 입력</td>
+          <td>독립 HTML 파일. 구글 시트를 직접 만지지 못해 창구에 부탁합니다.</td></tr>
+      <tr><td><b>Apps Script</b></td><td>인증·데이터 처리·메일 발송</td>
+          <td>21개 요청(action)을 라우터가 분기 처리. HTML을 포함하지 않는 순수 API.</td></tr>
+      <tr><td><b>Google Sheets</b></td><td>데이터 보관</td>
+          <td>Users · Sessions · Resets · Contacts · CallLog · Settings · Locations · Inquiries</td></tr>
+    </table>
+
+    <div class="note">
+      🛠️ <b>기술 선택의 이유</b> — 서버를 직접 구축하지 않아도 되고, 데이터를 스프레드시트에서
+      눈으로 확인·수정할 수 있습니다. 고객 문의 답변도 시트에 직접 적으면 화면에 바로 반영됩니다.
+    </div>
+  </section>
+
+  <!-- ══════ 6. 디자인 ══════ -->
+  <section>
+    <h2><span class="no">6</span>디자인 컨셉 — 원목과 자연</h2>
+    <p class="lead">가족이라는 주제에 어울리는 따뜻한 질감을 택했습니다.</p>
+    <table>
+      <tr><th style="width:26%">요소</th><th>의도</th></tr>
+      <tr><td><b>🪵 나뭇결 배경</b></td><td>차가운 앱이 아니라 <b>집 안 거실</b> 같은 온기</td></tr>
+      <tr><td><b>🖼️ 원목 액자</b></td><td>사진을 디지털 이미지가 아닌 <b>실제 액자에 놓인 추억</b>처럼</td></tr>
+      <tr><td><b>🌿 나뭇잎 그린</b></td><td>버튼·그래프의 강조색. 안부나무의 <b>잎</b>을 상징</td></tr>
+      <tr><td><b>🌳 이름과 로고</b></td><td><b>안부나무</b> — 안부가 쌓여 자라는 나무. 로고는 나무 안의 하트</td></tr>
+    </table>
+  </section>
+
+  <!-- ══════ 7. 개인정보 보호 ══════ -->
+  <section>
+    <h2><span class="no">7</span>개인정보 보호 설계</h2>
+    <p class="lead">위치와 연락처를 다루는 서비스인 만큼, 설계 단계부터 반영했습니다.</p>
+    <table>
+      <tr><th style="width:26%">항목</th><th>설계</th></tr>
+      <tr><td><b>비밀번호</b></td><td><b>SHA-256 + 솔트 해시</b>로 저장. 평문은 어디에도 남지 않습니다.</td></tr>
+      <tr><td><b>위치 공유</b></td><td>사용자가 <b>직접 ON</b> 한 경우에만 수집·공유. 언제든 OFF로 즉시 중단.</td></tr>
+      <tr><td><b>공유 범위</b></td><td><b>가족 연동 코드</b>가 같은 사람끼리만. 모르는 사람에게 노출되지 않습니다.</td></tr>
+      <tr><td><b>거리 계산</b></td><td>내 좌표는 <b>내 기기에만</b> 저장. 공유를 꺼도 <b>가족과의 거리는 볼 수 있습니다.</b></td></tr>
+      <tr><td><b>세션 · 토큰</b></td><td>로그인 세션 30일 만료. 재설정 토큰은 <b>1시간 · 1회용</b>이며 사용 시 기존 세션 전부 무효화.</td></tr>
+    </table>
+  </section>
+
+  <!-- ══════ 8. 개발 현황 ══════ -->
+  <section>
+    <h2><span class="no">8</span>개발 현황</h2>
+    <p class="lead">실제 배포본으로 전 과정을 테스트해 확인했습니다.</p>
+
+    <h3>구현 완료 · 동작 확인</h3>
+    <ul>
+      <li class="done">회원가입 → 로그인 → 새로고침 후 <b>세션 유지</b></li>
+      <li class="done">가족 연락처 등록 → 사진 액자 표시</li>
+      <li class="done">전화 기록 → 통계 반영 (목표 달성률 · 진행바 · 스트릭)</li>
+      <li class="done">일별 · 가족별 <b>그래프 렌더링</b></li>
+      <li class="done">1:1 문의 접수 → 내역 조회</li>
+      <li class="done">화면과 서버 간 <b>21개 요청 전부 정상 연결</b></li>
+    </ul>
+
+    <h3>남은 과제</h3>
+    <ul>
+      <li class="todo"><b>화면 호스팅</b> — 현재 HTML이 PC 안의 파일이라, 휴대폰에서 열어야 동작하는
+        <b>전화 연결(tel:)</b>과 <b>가족의 접속</b>이 아직 불가능합니다.</li>
+      <li class="todo"><b>비밀번호 재설정 링크</b> — 화면 주소가 정해지면 완성됩니다.</li>
+    </ul>
+
+    <div class="note warn">
+      ⚠️ <b>솔직한 현재 상태</b> — 기능은 모두 구현되어 동작하지만, 이 서비스의 핵심인
+      <b>"실제로 전화가 걸리는" 경험</b>은 호스팅 이후에 완성됩니다. 세 가지 남은 문제의 원인이
+      모두 <b>"화면이 아직 인터넷에 올라가 있지 않다"</b> 하나로 모입니다.
+    </div>
+  </section>
+
+  <!-- ══════ 9. 향후 계획 ══════ -->
+  <section>
+    <h2><span class="no">9</span>향후 계획</h2>
+    <table>
+      <tr><th style="width:14%">순서</th><th style="width:30%">할 일</th><th>기대 효과</th></tr>
+      <tr><td><b>1</b></td><td>화면 호스팅 (무료 정적 호스팅)</td>
+          <td>휴대폰에서 <b>실제 전화 연결</b>, 가족도 각자 가입해 <b>위치 공유</b> 가능</td></tr>
+      <tr><td><b>2</b></td><td>비밀번호 재설정 링크 연결</td><td>계정 복구 기능 완성</td></tr>
+      <tr><td><b>3</b></td><td>이메일 인증 · 비밀번호 정책 강화</td><td>공개 서비스 수준의 보안</td></tr>
+      <tr><td><b>4</b></td><td>사용자 증가 시 백엔드 이전</td>
+          <td>Apps Script의 일일 할당량·동시 접속 한계 해소</td></tr>
+    </table>
+  </section>
+
+  <!-- ══════ 마무리 ══════ -->
+  <section style="text-align:center">
+    <svg width="60" height="60" viewBox="0 0 64 64" style="margin-bottom:6px">
+      <circle cx="32" cy="32" r="30" fill="#8b5e34"/>
+      <rect x="29" y="30" width="6" height="20" rx="2" fill="#6f4a2f"/>
+      <path d="M32 12c-9 0-16 6-16 15 0 7 7 12 16 12s16-5 16-12c0-9-7-15-16-15z" fill="#6f8f4e"/>
+      <path d="M32 34s-7-4-7-9a4 4 0 0 1 7-2.5A4 4 0 0 1 39 25c0 5-7 9-7 9z" fill="#f3e4cf"/>
+    </svg>
+    <h2 style="justify-content:center; margin-bottom:12px">안부는 쌓여서 나무가 됩니다</h2>
+    <p style="color:var(--muted); max-width:620px; margin:0 auto">
+      바빠서 잊었을 뿐, 마음이 없었던 게 아닙니다.<br>
+      <b>안부나무</b>는 그 마음을 때맞춰 꺼내어, 전화 한 통으로 이어드립니다.
+    </p>
+  </section>
+
+  <footer>안부나무 · 가족에게 마음을 전하는 안부 한 통</footer>
+</div>
+
+</body>
+</html>
